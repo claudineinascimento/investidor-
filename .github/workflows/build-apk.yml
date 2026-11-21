@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -24,3 +27,10 @@ jobs:
         with:
           name: meu-aplicador-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Publicar o APK em Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk meu-aplicador.apk
+          gh release delete apk-teste --yes --cleanup-tag 2>/dev/null || true
+          gh release create apk-teste meu-aplicador.apk --title "Meu Aplicador (APK de teste)" --notes "Baixe o arquivo meu-aplicador.apk no celular Android e instale. APK de teste, sem assinatura da Play Store."
