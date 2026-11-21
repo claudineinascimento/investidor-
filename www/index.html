@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f7b5f">
+<title>Meu Aplicador</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<script src="chart.umd.min.js"></script>
+<style>
+/* Layout: cabeçalho fixo com busca; coluna principal com a ação aberta; lateral com favoritos (vira rodapé no celular) */
+:root {
+  --bg: #f4f7f5; --surface: #ffffff; --surface-2: #eef3f0; --fg: #14201b; --muted: #5a6a64; --line: #dbe3df;
+  --accent: #0f7b5f; --accent-fg: #ffffff; --accent-soft: #e0f1ea; --up: #0d8048; --down: #c0392f;
+  --warn-bg: #fff5dc; --warn-fg: #644600; --err-bg: #fdecea;
+  --c-ibov: #3566cc; --c-cdi: #a8670f; --c-ipca: #8650c4;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-head: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0e1412; --surface: #161f1c; --surface-2: #1d2824; --fg: #e4ece8; --muted: #93a39d; --line: #2a3632;
+    --accent: #3cc497; --accent-fg: #06201a; --accent-soft: #1b392f; --up: #45c986; --down: #f0776d;
+    --warn-bg: #3a2f12; --warn-fg: #f3d68a; --err-bg: #3a1f1c;
+    --c-ibov: #7aa2f7; --c-cdi: #e0a447; --c-ipca: #b993ec; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--font-body); -webkit-tap-highlight-color: transparent; }
+h1, h2, h3 { font-family: var(--font-head); margin: 0; text-wrap: balance; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* Cabeçalho */
+header.top { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); }
+.top-inner { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px 16px; align-items: center; }
+.brand { font-family: var(--font-head); font-weight: 600; font-size: 18px; white-space: nowrap; }
+.brand span { color: var(--accent); }
+.search { position: relative; min-width: 0; }
+.search input { width: 100%; padding: 11px 14px 11px 38px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); font-size: 16px; }
+.search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.icon-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 9px 12px; display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; min-height: 44px; }
+@media (max-width: 640px) {
+  .top-inner { grid-template-columns: 1fr auto; }
+  .search { grid-column: 1 / -1; grid-row: 2; }
+  .icon-btn .lbl { display: none; }
+}
+.suggest { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 28px rgba(0,0,0,.14); list-style: none; margin: 0; padding: 4px; max-height: min(60vh, 380px); overflow-y: auto; }
+.suggest li { display: flex; gap: 10px; align-items: center; padding: 10px; border-radius: 8px; cursor: pointer; min-height: 44px; }
+.suggest li[aria-selected="true"], .suggest li:hover { background: var(--accent-soft); }
+.suggest .head { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; min-height: 0; cursor: default; padding: 6px 10px 2px; }
+.suggest .head:hover { background: none; }
+.logo { width: 28px; height: 28px; border-radius: 6px; object-fit: contain; background: #fff; flex: none; border: 1px solid var(--line); }
+.logo.ph { display: inline-grid; place-items: center; font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-soft); border: 0; }
+.suggest .tk { font-weight: 600; min-width: 62px; }
+.suggest .nm { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+
+/* Estrutura */
+main { max-width: 1180px; margin: 0 auto; padding: 18px max(16px, env(safe-area-inset-right, 0px)) 28px max(16px, env(safe-area-inset-left, 0px)); display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 18px; }
+@media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; min-width: 0; }
+@media (max-width: 480px) { .panel { padding: 14px; } }
+.stack { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.disclaimer { background: var(--warn-bg); color: var(--warn-fg); border-radius: 12px; padding: 10px 14px; font-size: 13px; }
+.status { color: var(--muted); font-size: 13px; }
+.error { background: var(--err-bg); border-radius: 12px; padding: 14px; }
+.error p { margin: 6px 0 0; }
+
+/* Cabeçalho da ação */
+.quote-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 14px; align-items: start; }
+.quote-head .logo { width: 48px; height: 48px; border-radius: 12px; font-size: 14px; }
+.quote-title h1 { font-size: 26px; line-height: 1.15; }
+.quote-title .sub { color: var(--muted); }
+.price-box { text-align: right; }
+.price { font-family: var(--font-head); font-size: 30px; font-weight: 600; line-height: 1.15; }
+.chg.up { color: var(--up); } .chg.down { color: var(--down); }
+.badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.pill { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 6px 12px; font-size: 13px; min-height: 36px; }
+.pill[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.market-state { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.dot.open { background: var(--up); }
+@media (max-width: 560px) {
+  .quote-head { grid-template-columns: auto minmax(0, 1fr); }
+  .price-box { grid-column: 1 / -1; text-align: left; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-top: 6px; }
+  .price-box .status { flex-basis: 100%; }
+}
+
+/* Abas */
+.tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid var(--line); margin: 16px 0; }
+.tabs button { border: 0; background: none; padding: 10px 4px; border-bottom: 2px solid transparent; color: var(--muted); min-height: 44px; font-size: 14px; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+
+/* Gráfico */
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 7px 11px; font-size: 13px; min-height: 36px; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.compare { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.compare .pill { display: inline-flex; gap: 6px; align-items: center; color: var(--fg); padding: 4px 10px; min-height: 32px; }
+.swatch { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+.chart-box { position: relative; height: 300px; }
+@media (max-width: 480px) { .chart-box { height: 240px; } }
+
+/* Cartões de números */
+.section-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 18px 0 8px; }
+.ret-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.ret { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.ret .lbl { font-size: 12px; color: var(--muted); }
+.ret .val { font-family: var(--font-head); font-size: 20px; font-weight: 600; }
+.ret .hint { font-size: 12px; color: var(--muted); }
+.kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.kv div { font-size: 13px; color: var(--muted); }
+.kv b { display: block; color: var(--fg); font-size: 15px; font-weight: 600; }
+
+/* Indicadores */
+.ind-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.ind { border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 4px; }
+.ind .name { font-weight: 600; font-size: 14px; }
+.ind .row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ind .v { font-family: var(--font-head); font-size: 24px; font-weight: 600; }
+.ind .sector { font-size: 12px; color: var(--muted); text-align: right; }
+.ind .sector b { color: var(--fg); }
+.ind p { margin: 0; font-size: 13px; color: var(--muted); }
+.cmp { font-size: 12px; border-radius: 999px; padding: 1px 8px; background: var(--surface-2); color: var(--muted); align-self: flex-start; }
+.peers { font-size: 12px; color: var(--muted); margin-top: 10px; }
+
+/* Tabela */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+td.r, th.r { text-align: right; }
+.more { margin-top: 10px; }
+
+/* Lateral */
+.side h2 { font-size: 16px; margin-bottom: 10px; }
+.side ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.side li { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 8px; cursor: pointer; min-height: 44px; }
+.side li:hover { background: var(--accent-soft); }
+.side li .tk { font-weight: 600; flex: 1; }
+.side .rm { border: 0; background: none; color: var(--muted); width: 32px; height: 32px; border-radius: 8px; font-size: 18px; line-height: 1; }
+.side .rm:hover { background: var(--surface-2); }
+.mkt-row { display: flex; justify-content: space-between; padding: 4px 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+/* Esqueleto de carregamento */
+.skel { background: linear-gradient(90deg, var(--surface-2) 25%, var(--line) 50%, var(--surface-2) 75%); background-size: 200% 100%; animation: sh 1.2s infinite linear; border-radius: 8px; }
+@keyframes sh { to { background-position: -200% 0; } }
+
+dialog { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--fg); max-width: 520px; width: calc(100% - 32px); padding: 20px; }
+dialog::backdrop { background: rgba(0,0,0,.45); }
+dialog input { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); font-size: 16px; }
+.row-end { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.primary { background: var(--accent); color: var(--accent-fg); border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 600; min-height: 44px; }
+footer { max-width: 1180px; margin: 0 auto; padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(28px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); color: var(--muted); font-size: 12px; }
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">Meu <span>Aplicador</span></div>
+    <div class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="text" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="characters" spellcheck="false"
+        placeholder="Nome ou ticker: Petrobras, VALE3, Itaú" aria-label="Buscar ação" role="combobox" aria-expanded="false" aria-controls="suggest" aria-autocomplete="list">
+      <ul id="suggest" class="suggest" role="listbox" hidden></ul>
+    </div>
+    <button class="icon-btn" id="btnToken" type="button" aria-label="Configurar chave da API">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 8.2-8.2m-3 3 3 3m-5-1 2 2"/></svg>
+      <span class="lbl">Chave da API</span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="stack">
+    <div class="disclaimer" role="note">Conteúdo educativo. Não é recomendação de compra ou venda. Rentabilidade passada não garante rentabilidade futura. Cotações com atraso de pelo menos 15 minutos.</div>
+    <section id="view" class="panel" aria-live="polite"></section>
+  </div>
+  <aside class="stack">
+    <section class="panel side">
+      <h2>Favoritos</h2>
+      <ul id="watchList"></ul>
+      <p id="watchEmpty" class="status" style="margin:0">Toque em "Favoritar" numa ação para acompanhá-la aqui.</p>
+    </section>
+    <section class="panel side">
+      <h2>Mercado</h2>
+      <div id="market" class="status">Carregando...</div>
+    </section>
+  </aside>
+</main>
+<footer>
+  Fontes: <a href="https://brapi.dev" target="_blank" rel="noopener">brapi.dev</a> (cotações, histórico, proventos e indicadores da B3) e
+  <a href="https://dadosabertos.bcb.gov.br" target="_blank" rel="noopener">Banco Central, SGS</a> (CDI série 12 e IPCA série 433).
+  Indicadores são calculados com os últimos balanços disponíveis na fonte e podem diferir de outros sites. Este app não é registrado na CVM como analista ou consultor de valores mobiliários.
+</footer>
+
+<dialog id="tokenDlg" aria-labelledby="tokenTitle">
+  <form method="dialog" id="tokenForm">
+    <h2 id="tokenTitle" style="font-size:18px;margin-bottom:8px">Chave da API brapi</h2>
+    <p class="status" style="margin-top:0">Sem chave, só funcionam as ações de teste PETR4, VALE3, ITUB4 e MGLU3. Crie uma chave gratuita em <a href="https://brapi.dev/dashboard" target="_blank" rel="noopener">brapi.dev</a> e cole aqui. Ela fica salva só neste aparelho.</p>
+    <label for="tokenInput" class="status">Chave (token)</label>
+    <input id="tokenInput" type="text" autocomplete="off" spellcheck="false" autocapitalize="off">
+    <div class="row-end">
+      <button type="button" class="icon-btn" id="tokenCancel">Cancelar</button>
+      <button type="submit" class="primary">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  "use strict";
+  const API = "https://brapi.dev/api";
+  const BCB = "https://api.bcb.gov.br/dados/serie/bcdata.sgs";
+  const TEST_TICKERS = ["PETR4", "VALE3", "ITUB4", "MGLU3"];
+  const RANGES = [
+    { id: "1mo", label: "1M", interval: "1d", ppy: 252, days: 31 },
+    { id: "3mo", label: "3M", interval: "1d", ppy: 252, days: 92 },
+    { id: "6mo", label: "6M", interval: "1d", ppy: 252, days: 183 },
+    { id: "1y", label: "1A", interval: "1d", ppy: 252, days: 366 },
+    { id: "5y", label: "5A", interval: "1wk", ppy: 52, days: 1827 },
+    { id: "max", label: "Máx", interval: "1mo", ppy: 12, days: 20000 },
+  ];
+
+  // ---------- armazenamento local (tolerante a bloqueio) ----------
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  };
+  let token = store.get("brapiToken", "");
+  let watch = store.get("watchlist", ["PETR4", "VALE3"]);
+  let recent = store.get("recent", []);
+
+  // ---------- formatação ----------
+  const n2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const n1 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const n4 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  const compact = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
+  const isNum = (v) => typeof v === "number" && isFinite(v);
+  const pct = (v, signed = true) => (isNum(v) ? (signed && v > 0 ? "+" : "") + n2.format(v) + "%" : "—");
+  const money = (v, cur) => (isNum(v) ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: cur || "BRL" }).format(v) : "—");
+  const fmtDate = (d) => (d ? d.toLocaleDateString("pt-BR") : "—");
+  const toDate = (v) => {
+    if (v == null || v === "") return null;
+    if (typeof v === "number") return new Date(v < 1e12 ? v * 1000 : v);
+    const s = String(v);
+    const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (br) return new Date(+br[3], +br[2] - 1, +br[1]);
+    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})(T00:00:00(\.000)?Z?)?$/);
+    if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3]); // data pura: evita voltar um dia no fuso do Brasil
+    const d = new Date(s);
+    return isNaN(d) ? null : d;
+  };
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const cls = (v) => (isNum(v) ? (v >= 0 ? "up" : "down") : "");
+  const median = (arr) => { const a = arr.filter(isNum).sort((x, y) => x - y); if (!a.length) return null; const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+  const logoHtml = (url, sym, cls2 = "") => url && !/BRAPI\.svg$/i.test(url)
+    ? `<img class="logo ${cls2}" src="${esc(url)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'logo ph ${cls2}',textContent:'${esc((sym || '').slice(0, 4))}'}))">`
+    : `<span class="logo ph ${cls2}">${esc((sym || "").slice(0, 4))}</span>`;
+
+  // ---------- acesso às APIs ----------
+  async function brapi(path, params = {}) {
+    const url = new URL(API + path);
+    Object.entries(params).forEach(([k, v]) => v != null && v !== "" && url.searchParams.set(k, v));
+    if (token) url.searchParams.set("token", token);
+    let res;
+    try { res = await fetch(url); }
+    catch { throw new Error("Sem conexão com a brapi. Verifique a internet e tente de novo."); }
+    let body = null;
+    try { body = await res.json(); } catch {}
+    if (!res.ok || body?.error) {
+      let msg = body?.message || `Erro ${res.status} ao consultar a brapi.`;
+      if (res.status === 401) msg = "A chave da API é inválida ou expirou. Confira a chave em brapi.dev.";
+      if (res.status === 429) msg = "Limite de consultas da brapi atingido. Aguarde um pouco ou use uma chave com plano maior.";
+      const e = new Error(msg); e.status = res.status; throw e;
+    }
+    return body;
+  }
+  async function bcbSeries(code, from, to) {
+    const f = (d) => d.toLocaleDateString("pt-BR");
+    const res = await fetch(`${BCB}.${code}/dados?formato=json&dataInicial=${f(from)}&dataFinal=${f(to)}`);
+    if (!res.ok) throw new Error("BCB " + res.status);
+    const rows = await res.json();
+    if (!Array.isArray(rows)) throw new Error("BCB formato");
+    return rows.map((r) => ({ date: toDate(r.data), v: parseFloat(String(r.valor).replace(",", ".")) })).filter((r) => r.date && isNum(r.v));
+  }
+
+  // ---------- busca com autocompletar ----------
+  const q = document.getElementById("q");
+  const sug = document.getElementById("suggest");
+  let sugItems = [], sugIdx = -1, sugTimer = null, sugSeq = 0;
+  const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  function showSuggest(items, head) {
+    sugItems = items; sugIdx = items.length ? 0 : -1;
+    if (!items.length) { sug.hidden = true; q.setAttribute("aria-expanded", "false"); q.removeAttribute("aria-activedescendant"); return; }
+    sug.innerHTML = (head ? `<li class="head" role="presentation">${esc(head)}</li>` : "") +
+      items.map((s, i) => `<li role="option" id="opt${i}" data-i="${i}" aria-selected="${i === sugIdx}">
+      ${logoHtml(s.logo, s.stock)}
+      <span class="tk">${esc(s.stock)}</span><span class="nm">${esc(s.name || "")}${s.sector ? " · " + esc(s.sector) : ""}</span>
+      <span class="num">${isNum(s.close) ? n2.format(s.close) : ""}</span></li>`).join("");
+    sug.hidden = false; q.setAttribute("aria-expanded", "true"); q.setAttribute("aria-activedescendant", "opt0");
+  }
+  function moveSel(d) {
+    if (!sugItems.length) return;
+    sugIdx = (sugIdx + d + sugItems.length) % sugItems.length;
+    sug.querySelectorAll("li[role=option]").forEach((li, i) => li.setAttribute("aria-selected", i === sugIdx));
+    q.setAttribute("aria-activedescendant", "opt" + sugIdx);
+    sug.querySelector(`#opt${sugIdx}`)?.scrollIntoView({ block: "nearest" });
+  }
+  function showRecent() {
+    if (q.value.trim()) return;
+    if (recent.length) showSuggest(recent.map((s) => ({ stock: s })), "Buscas recentes");
+  }
+  async function runSuggest() {
+    const term = q.value.trim();
+    if (term.length < 2) { term ? showSuggest([]) : showRecent(); return; }
+    const my = ++sugSeq;
+    try {
+      const data = await brapi("/quote/list", { search: term, limit: 20, type: "stock" });
+      if (my !== sugSeq) return;
+      // Ordena: ticker exato, ticker que começa com o termo, nome que contém o termo; depois por volume
+      const t = norm(term);
+      const score = (s) => (norm(s.stock) === t ? 0 : norm(s.stock).startsWith(t) ? 1 : norm(s.name).includes(t) ? 2 : 3);
+      const list = (data.stocks || []).slice().sort((a, b) => score(a) - score(b) || (b.volume || 0) - (a.volume || 0)).slice(0, 10);
+      const looksTicker = /^[a-z]{4}\d{1,2}$/i.test(term);
+      if (looksTicker && !list.some((s) => s.stock.toUpperCase() === term.toUpperCase())) list.unshift({ stock: term.toUpperCase(), name: "Abrir este ticker" });
+      showSuggest(list);
+    } catch {
+      if (my !== sugSeq) return;
+      showSuggest([{ stock: term.toUpperCase(), name: "Abrir este ticker" }]);
+    }
+  }
+  q.addEventListener("input", () => { clearTimeout(sugTimer); sugTimer = setTimeout(runSuggest, 250); });
+  q.addEventListener("focus", showRecent);
+  q.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); moveSel(1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); moveSel(-1); }
+    else if (e.key === "Escape") { e.preventDefault(); showSuggest([]); }
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      const pick = sugIdx >= 0 && !sug.hidden ? sugItems[sugIdx].stock : q.value.trim();
+      if (pick) openTicker(pick);
+    }
+  });
+  sug.addEventListener("mousedown", (e) => {
+    const li = e.target.closest("li[role=option]"); if (!li) return;
+    e.preventDefault(); openTicker(sugItems[+li.dataset.i].stock);
+  });
+  q.addEventListener("blur", () => setTimeout(() => showSuggest([]), 150));
+
+  // ---------- estado ----------
+  const view = document.getElementById("view");
+  let cur = null;
+  let rangeId = store.get("range", "1y");
+  if (!RANGES.some((r) => r.id === rangeId)) rangeId = "1y";
+  let tab = "resumo";
+  let adjusted = true;
+  let bench = { ibov: false, cdi: false, ipca: false };
+  let chart = null, divChart = null;
+  let loadSeq = 0;
+  let divLimit = 20;
+
+  function openTicker(t) {
+    t = String(t).trim().toUpperCase().replace(/\.SA$/, "");
+    if (!t) return;
+    showSuggest([]); q.value = ""; q.blur(); tab = "resumo"; divLimit = 20;
+    recent = [t, ...recent.filter((x) => x !== t)].slice(0, 6); store.set("recent", recent);
+    try { history.replaceState(null, "", "#" + encodeURIComponent(t)); } catch {}
+    window.scrollTo({ top: 0 });
+    load(t);
+  }
+
+  function skeleton(t) {
+    view.innerHTML = `<p class="sr">Carregando ${esc(t)}</p>
+      <div style="display:flex;gap:14px;align-items:center"><div class="skel" style="width:48px;height:48px;border-radius:12px"></div>
+      <div style="flex:1"><div class="skel" style="width:120px;height:26px"></div><div class="skel" style="width:200px;height:14px;margin-top:8px"></div></div>
+      <div class="skel" style="width:120px;height:32px"></div></div>
+      <div class="skel" style="height:40px;margin:20px 0 14px"></div><div class="skel" style="height:260px"></div>`;
+  }
+
+  async function load(ticker) {
+    const my = ++loadSeq;
+    if (!cur || cur.symbol !== ticker) skeleton(ticker);
+    const r = RANGES.find((x) => x.id === rangeId);
+    try {
+      const data = await brapi("/quote/" + encodeURIComponent(ticker), {
+        range: r.id, interval: r.interval, fundamental: "true", dividends: "true",
+        modules: "summaryProfile,defaultKeyStatistics,financialData",
+      });
+      if (my !== loadSeq) return;
+      const res = data.results?.[0];
+      if (!res) throw new Error(`Não encontrei a ação ${ticker}. Confira o código (exemplo: PETR4).`);
+      const keep = cur && cur.symbol === res.symbol ? { bench: cur._bench, sector: cur._sector } : null;
+      cur = res; cur._range = r; cur._bench = {}; cur._sector = keep?.sector;
+      render();
+      loadBenchmarks(my);
+      if (cur._sector === undefined) loadSector(my);
+    } catch (e) {
+      if (my !== loadSeq) return;
+      cur = null;
+      const hint = !token && !TEST_TICKERS.includes(ticker)
+        ? `<p>Sem chave da API, a brapi só libera as ações de teste.</p><div class="chips"><button class="primary" type="button" data-act="token">Adicionar chave gratuita</button></div>` : "";
+      view.innerHTML = `<div class="error" role="alert"><b>Não foi possível abrir ${esc(ticker)}.</b><p>${esc(e.message)}</p>${hint}
+        <div class="chips"><button class="pill" type="button" data-retry="${esc(ticker)}">Tentar de novo</button></div></div>
+        <p class="status" style="margin:16px 0 0">Ações de teste, que funcionam sem chave:</p>
+        <div class="chips">${TEST_TICKERS.map((t) => `<button class="pill" type="button" data-open="${t}">${t}</button>`).join("")}</div>`;
+    }
+  }
+
+  // ---------- comparativos: Ibovespa, CDI e IPCA ----------
+  async function loadBenchmarks(my) {
+    const hist = series();
+    if (hist.length < 2) return;
+    const from = hist[0].date, to = hist[hist.length - 1].date;
+    const r = cur._range;
+    const b = cur._bench;
+    await Promise.all([
+      brapi("/quote/%5EBVSP", { range: r.id, interval: r.interval }).then((d) => {
+        b.ibov = (d.results?.[0]?.historicalDataPrice || []).map((p) => ({ date: toDate(p.date), v: p.close })).filter((p) => p.date && isNum(p.v)).sort((a, c) => a.date - c.date);
+        if (!b.ibov.length) b.ibov = null;
+      }).catch(() => { b.ibov = null; }),
+      // A API do BCB limita consultas da série diária a 10 anos
+      bcbSeries(12, new Date(Math.max(+from, +to - 3650 * 864e5)), to).then((rows) => { b.cdi = rows; b.cdiCut = +from < +to - 3650 * 864e5; }).catch(() => { b.cdi = null; }),
+      bcbSeries(433, new Date(from.getFullYear(), from.getMonth(), 1), to).then((rows) => { b.ipca = rows; }).catch(() => { b.ipca = null; }),
+    ]);
+    if (my !== loadSeq || !cur) return;
+    if (tab === "resumo") renderResumoChart();
+  }
+
+  // ---------- média (mediana) do setor ----------
+  async function loadSector(my) {
+    const c = cur;
+    c._sector = { state: "loading" };
+    try {
+      const self = await brapi("/quote/list", { search: c.symbol, limit: 5, type: "stock" });
+      const meRow = (self.stocks || []).find((s) => s.stock === c.symbol);
+      const sector = meRow?.sector;
+      if (!sector) throw new Error("sem setor");
+      const list = await brapi("/quote/list", { sector, limit: 30, sortBy: "market_cap_basic", sortOrder: "desc", type: "stock" });
+      const root = (s) => s.slice(0, 4);
+      const seen = new Set([root(c.symbol)]);
+      const peers = [];
+      for (const s of list.stocks || []) { if (!seen.has(root(s.stock))) { seen.add(root(s.stock)); peers.push(s.stock); } if (peers.length >= 7) break; }
+      if (!peers.length) throw new Error("sem pares");
+      const params = { fundamental: "true", dividends: "true", modules: "defaultKeyStatistics,financialData" };
+      let quotes = [];
+      try { quotes = (await brapi("/quote/" + peers.join(","), params)).results || []; }
+      catch (e) {
+        // Planos que aceitam uma ação por consulta: busca uma a uma e para no primeiro bloqueio
+        for (const p of peers) {
+          try { const d = await brapi("/quote/" + p, params); if (d.results?.[0]) quotes.push(d.results[0]); }
+          catch (e2) { if (e2.status === 401 || e2.status === 403 || e2.status === 429) break; }
+          if (my !== loadSeq) return;
+        }
+      }
+      if (my !== loadSeq) return;
+      const ms = quotes.map(metricsOf);
+      const med = {};
+      ["pe", "pb", "dy", "roe", "margin", "evE", "ndE"].forEach((k) => {
+        const vals = ms.map((m) => m[k]).filter((v) => isNum(v) && (k !== "pe" || v > 0) && (k !== "evE" || v > 0));
+        med[k] = vals.length >= 3 ? { v: median(vals), n: vals.length } : null;
+      });
+      c._sector = { state: "ok", name: sector, peers: quotes.map((x) => x.symbol), med };
+    } catch {
+      if (my !== loadSeq) return;
+      c._sector = { state: "fail" };
+    }
+    if (my === loadSeq && tab === "indicadores") renderTab();
+  }
+
+  // ---------- séries e cálculos ----------
+  function series() {
+    return (cur?.historicalDataPrice || [])
+      .map((p) => ({ date: toDate(p.date), close: p.close, adj: isNum(p.adjustedClose) && p.adjustedClose > 0 ? p.adjustedClose : p.close }))
+      .filter((p) => p.date && isNum(p.close) && p.close > 0)
+      .sort((a, b) => a.date - b.date);
+  }
+  function toBase100(dates, pts, mode) {
+    if (!pts || !pts.length) return null;
+    const out = [];
+    if (mode === "price") {
+      let j = 0, base = null;
+      for (const d of dates) {
+        while (j + 1 < pts.length && pts[j + 1].date <= d) j++;
+        const v = pts[j].date <= d ? pts[j].v : null;
+        if (v != null && base == null) base = v;
+        out.push(v != null && base ? (v / base) * 100 : null);
+      }
+      return out.some((v) => v != null) ? out : null;
+    }
+    if (mode === "cdi") { // série 12: taxa % ao dia útil; acumula a partir do dia seguinte ao início
+      let j = 0, acc = 1; const start = dates[0];
+      const daily = pts.filter((p) => p.date > start);
+      for (const d of dates) { while (j < daily.length && daily[j].date <= d) { acc *= 1 + daily[j].v / 100; j++; } out.push(acc * 100); }
+      return out;
+    }
+    if (mode === "ipca") { // série 433: % ao mês; conta só meses completos dentro do período
+      let acc = 1, j = 0; const start = dates[0];
+      const months = pts.filter((p) => p.date >= new Date(start.getFullYear(), start.getMonth() + 1, 1));
+      for (const d of dates) {
+        while (j < months.length && new Date(months[j].date.getFullYear(), months[j].date.getMonth() + 1, 0) <= d) { acc *= 1 + months[j].v / 100; j++; }
+        out.push(acc * 100);
+      }
+      return out;
+    }
+    return null;
+  }
+  const lastOf = (arr) => { if (!arr) return null; for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i]; return null; };
+
+  function risk(hist, ppy) {
+    const v = hist.map((p) => p.adj);
+    const rets = [];
+    for (let i = 1; i < v.length; i++) rets.push(Math.log(v[i] / v[i - 1]));
+    let vol = null;
+    if (rets.length >= 10) {
+      const m = rets.reduce((a, b) => a + b, 0) / rets.length;
+      const sd = Math.sqrt(rets.reduce((a, b) => a + (b - m) ** 2, 0) / (rets.length - 1));
+      vol = sd * Math.sqrt(ppy) * 100;
+    }
+    let peak = v[0], mdd = 0;
+    for (const x of v) { if (x > peak) peak = x; mdd = Math.min(mdd, x / peak - 1); }
+    const years = (hist[hist.length - 1].date - hist[0].date) / (365.25 * 864e5);
+    const cagr = years >= 1 ? (Math.pow(v[v.length - 1] / v[0], 1 / years) - 1) * 100 : null;
+    return { vol, mdd: mdd * 100, cagr, years };
+  }
+
+  function cashDividendsOf(q) {
+    const list = q?.dividendsData?.cashDividends || [];
+    const seen = new Set();
+    return list.map((d) => ({
+      label: /jcp|juros/i.test(d.label || "") ? "JCP" : /rend/i.test(d.label || "") ? "Rendimento" : (d.label ? d.label.charAt(0) + d.label.slice(1).toLowerCase() : "Provento"),
+      rate: Number(d.rate), com: toDate(d.lastDatePrior), pay: toDate(d.paymentDate), relatedTo: d.relatedTo || "",
+    }))
+      .filter((d) => isNum(d.rate) && d.rate > 0)
+      .filter((d) => { const k = `${+d.com}|${d.rate}|${d.label}`; if (seen.has(k)) return false; seen.add(k); return true; })
+      .sort((a, b) => ((b.com || b.pay || 0) - (a.com || a.pay || 0)));
+  }
+  function paid12m(q) {
+    const lim = new Date(Date.now() - 365 * 864e5);
+    return cashDividendsOf(q).filter((d) => (d.com || d.pay) && (d.com || d.pay) >= lim).reduce((s, d) => s + d.rate, 0);
+  }
+  function metricsOf(q) {
+    const ks = q.defaultKeyStatistics || {}, fd = q.financialData || {};
+    const num = (v) => (isNum(v) ? v : v && isNum(v.raw) ? v.raw : null);
+    const price = num(q.regularMarketPrice);
+    const lpa = num(q.earningsPerShare) ?? num(ks.trailingEps);
+    const vpa = num(ks.bookValue);
+    let pe = num(q.priceEarnings) ?? num(ks.trailingPE);
+    if (pe == null && isNum(price) && isNum(lpa) && lpa !== 0) pe = price / lpa;
+    let pb = num(ks.priceToBook);
+    if (pb == null && isNum(price) && isNum(vpa) && vpa > 0) pb = price / vpa;
+    const debt = num(fd.totalDebt), cash = num(fd.totalCash), ebitda = num(fd.ebitda);
+    const p12 = paid12m(q);
+    return {
+      price, lpa, vpa, pe, pb,
+      dy: isNum(price) && price > 0 && p12 > 0 ? (p12 / price) * 100 : (q.dividendsData ? 0 : null),
+      roe: isNum(num(fd.returnOnEquity)) ? num(fd.returnOnEquity) * 100 : null,
+      margin: isNum(num(fd.profitMargins) ?? num(ks.profitMargins)) ? (num(fd.profitMargins) ?? num(ks.profitMargins)) * 100 : null,
+      evE: num(ks.enterpriseToEbitda),
+      ndE: isNum(debt) && isNum(cash) && isNum(ebitda) && ebitda > 0 ? (debt - cash) / ebitda : null,
+      paid12: p12,
+    };
+  }
+  const isFinancial = (c) => /financ|bank|banco|insur|segur|capital markets/i.test(`${c.summaryProfile?.sector || ""} ${c.summaryProfile?.industry || ""} ${c._sector?.name || ""}`);
+
+  function marketState(c) {
+    const t = toDate(c.regularMarketTime);
+    if (!t) return { open: false, text: "Horário da cotação indisponível" };
+    const ageMin = (Date.now() - t) / 60000;
+    const open = ageMin < 60;
+    return { open, text: (open ? "Pregão aberto · cotação de " : "Fechamento de ") + t.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) };
+  }
+
+  // ---------- renderização ----------
+  function render() {
+    const c = cur;
+    const fav = watch.includes(c.symbol);
+    const sp = c.summaryProfile || {};
+    const ms = marketState(c);
+    view.innerHTML = `
+      <div class="quote-head">
+        ${logoHtml(c.logourl, c.symbol)}
+        <div class="quote-title">
+          <h1>${esc(c.symbol)}</h1>
+          <div class="sub">${esc(c.longName || c.shortName || "")}${sp.sector ? " · " + esc(sp.sector) : ""}</div>
+        </div>
+        <div class="price-box">
+          <div class="price num">${money(c.regularMarketPrice, c.currency)}</div>
+          <div class="chg ${cls(c.regularMarketChangePercent)} num">${isNum(c.regularMarketChange) ? (c.regularMarketChange > 0 ? "+" : "") + n2.format(c.regularMarketChange) : ""} (${pct(c.regularMarketChangePercent)}) no dia</div>
+          <div class="status market-state"><span class="dot ${ms.open ? "open" : ""}"></span>${esc(ms.text)}</div>
+        </div>
+      </div>
+      <div class="badges">
+        <button class="pill" type="button" data-act="fav" aria-pressed="${fav}">${fav ? "★ Nos favoritos" : "☆ Favoritar"}</button>
+        <button class="pill" type="button" data-act="refresh">Atualizar</button>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Seções da ação">
+        ${[["resumo", "Resumo"], ["proventos", "Proventos"], ["indicadores", "Indicadores"], ["empresa", "Empresa"]]
+          .map(([id, l]) => `<button role="tab" type="button" id="tab-${id}" data-tab="${id}" aria-selected="${tab === id}" aria-controls="tabBody" tabindex="${tab === id ? 0 : -1}">${l}</button>`).join("")}
+      </div>
+      <div id="tabBody" role="tabpanel" aria-labelledby="tab-${tab}"></div>`;
+    renderTab();
+  }
+
+  function renderTab() {
+    const body = document.getElementById("tabBody");
+    if (!body || !cur) return;
+    body.setAttribute("aria-labelledby", "tab-" + tab);
+    if (chart) { chart.destroy(); chart = null; }
+    if (divChart) { divChart.destroy(); divChart = null; }
+    if (tab === "resumo") return renderResumo(body);
+    if (tab === "proventos") return renderProventos(body);
+    if (tab === "indicadores") return renderIndicadores(body);
+    return renderEmpresa(body);
+  }
+
+  function renderResumo(body) {
+    const c = cur;
+    body.innerHTML = `
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="Período">${RANGES.map((r) => `<button type="button" data-range="${r.id}" aria-pressed="${r.id === rangeId}">${r.label}</button>`).join("")}</div>
+        <div class="seg" role="group" aria-label="Tipo de preço">
+          <button type="button" data-adj="1" aria-pressed="${adjusted}">Ajustado</button>
+          <button type="button" data-adj="0" aria-pressed="${!adjusted}">Nominal</button>
+        </div>
+      </div>
+      <div class="compare" role="group" aria-label="Comparar com">
+        <span>Comparar com</span>
+        <button class="pill" type="button" data-bench="ibov" aria-pressed="${bench.ibov}"><span class="swatch" style="background:var(--c-ibov)"></span>Ibovespa</button>
+        <button class="pill" type="button" data-bench="cdi" aria-pressed="${bench.cdi}"><span class="swatch" style="background:var(--c-cdi)"></span>CDI</button>
+        <button class="pill" type="button" data-bench="ipca" aria-pressed="${bench.ipca}"><span class="swatch" style="background:var(--c-ipca)"></span>IPCA</button>
+      </div>
+      <div class="chart-box"><canvas id="priceChart" role="img" aria-label="Gráfico do preço de ${esc(c.symbol)} no período"></canvas></div>
+      <p class="status" id="chartNote" style="margin:6px 0 0"></p>
+      <div id="retWrap"></div>
+      <div class="section-label">Hoje</div>
+      <div class="kv">
+        <div>Abertura<b class="num">${money(c.regularMarketOpen, c.currency)}</b></div>
+        <div>Fechamento anterior<b class="num">${money(c.regularMarketPreviousClose, c.currency)}</b></div>
+        <div>Mínima e máxima do dia<b class="num">${isNum(c.regularMarketDayLow) ? n2.format(c.regularMarketDayLow) + " a " + n2.format(c.regularMarketDayHigh) : "—"}</b></div>
+        <div>Mínima e máxima em 52 semanas<b class="num">${isNum(c.fiftyTwoWeekLow) ? n2.format(c.fiftyTwoWeekLow) + " a " + n2.format(c.fiftyTwoWeekHigh) : "—"}</b></div>
+        <div>Volume (ações)<b class="num">${isNum(c.regularMarketVolume) ? compact.format(c.regularMarketVolume) : "—"}</b></div>
+        <div>Valor de mercado<b class="num">${isNum(c.marketCap) ? "R$ " + compact.format(c.marketCap) : "—"}</b></div>
+      </div>`;
+    renderResumoChart();
+  }
+
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  function renderResumoChart() {
+    const canvas = document.getElementById("priceChart");
+    if (!canvas || !cur) return;
+    if (chart) { chart.destroy(); chart = null; }
+    const hist = series();
+    const retWrap = document.getElementById("retWrap");
+    const note = document.getElementById("chartNote");
+    if (hist.length < 2) { canvas.parentElement.innerHTML = `<p class="status">Sem histórico disponível para este período. No plano gratuito da brapi, o histórico pode ser limitado a alguns meses.</p>`; retWrap.innerHTML = ""; return; }
+    const r = cur._range;
+    const dates = hist.map((p) => p.date);
+    const b = cur._bench || {};
+    const comparing = bench.ibov || bench.cdi || bench.ipca;
+    const priceVals = hist.map((p) => (adjusted ? p.adj : p.close));
+    const stock100 = priceVals.map((v) => (v / priceVals[0]) * 100);
+    const ibov = toBase100(dates, b.ibov, "price");
+    const cdi = toBase100(dates, b.cdi, "cdi");
+    const ipca = toBase100(dates, b.ipca, "ipca");
+    const long = r.days > 400;
+    const labels = dates.map((d) => d.toLocaleDateString("pt-BR", long ? { month: "short", year: "2-digit" } : { day: "2-digit", month: "short" }));
+
+    const notes = [];
+    if (comparing) notes.push("Linhas em base 100: todas começam em 100 no início do período.");
+    if (!adjusted) notes.push("Preço nominal: desdobramentos e grupamentos aparecem como saltos.");
+    const pending = [];
+    ["ibov", "cdi", "ipca"].forEach((k) => { if (bench[k] && b[k] === undefined) pending.push(k); });
+    const missing = [["ibov", "Ibovespa"], ["cdi", "CDI"], ["ipca", "IPCA"]].filter(([k]) => bench[k] && b[k] === null).map(([, l]) => l);
+    if (pending.length) notes.push("Carregando comparativos...");
+    if (missing.length) notes.push(`Indisponível agora: ${missing.join(", ")}.`);
+    note.textContent = notes.join(" ");
+
+    const ds = [{
+      label: cur.symbol, data: comparing ? stock100 : priceVals, borderColor: css("--accent"), backgroundColor: css("--accent-soft"),
+      fill: !comparing, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.1,
+    }];
+    if (bench.ibov && ibov) ds.push({ label: "Ibovespa", data: ibov, borderColor: css("--c-ibov"), borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 3 });
+    if (bench.cdi && cdi) ds.push({ label: "CDI", data: cdi, borderColor: css("--c-cdi"), borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 3, borderDash: [6, 4] });
+    if (bench.ipca && ipca) ds.push({ label: "IPCA", data: ipca, borderColor: css("--c-ipca"), borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 3, borderDash: [2, 3] });
+
+    if (window.Chart) {
+      const muted = css("--muted");
+      chart = new Chart(canvas, {
+        type: "line",
+        data: { labels, datasets: ds },
+        options: {
+          responsive: true, maintainAspectRatio: false, animation: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: {
+              title: (items) => dates[items[0].dataIndex].toLocaleDateString("pt-BR", r.interval === "1mo" ? { month: "long", year: "numeric" } : { day: "2-digit", month: "short", year: "numeric" }),
+              label: (ctx) => ` ${ctx.dataset.label}: ${comparing ? n2.format(ctx.parsed.y) : money(ctx.parsed.y, cur.currency)}`,
+            } },
+          },
+          scales: {
+            x: { ticks: { color: muted, maxTicksLimit: canvas.parentElement.clientWidth < 520 ? 4 : 7, autoSkip: true, maxRotation: 0 }, grid: { display: false } },
+            y: { position: "right", ticks: { color: muted, maxTicksLimit: 6, callback: (v) => n2.format(v) }, grid: { color: css("--line") } },
+          },
+        },
+      });
+    } else {
+      canvas.parentElement.innerHTML = `<p class="status">O gráfico não carregou. Recarregue a página.</p>`;
+    }
+
+    // Rentabilidade e risco no período (sempre calculados, mesmo sem comparar no gráfico)
+    const first = hist[0], last = hist[hist.length - 1];
+    const rk = risk(hist, r.ppy);
+    const card = (l, v, hint, colored = true) => `<div class="ret"><div class="lbl">${l}</div><div class="val num ${colored ? "chg " + cls(v) : ""}">${typeof v === "string" ? v : pct(v)}</div>${hint ? `<div class="hint">${hint}</div>` : ""}</div>`;
+    const benchVal = (arr, key) => (arr ? pct(lastOf(arr) - 100) : b[key] === undefined ? "..." : "—");
+    retWrap.innerHTML = `
+      <div class="section-label">Rentabilidade de ${fmtDate(first.date)} a ${fmtDate(last.date)}</div>
+      <div class="ret-grid">
+        ${card("Retorno total", (last.adj / first.adj - 1) * 100, "Preço ajustado, com proventos")}
+        ${card("Só o preço", (last.close / first.close - 1) * 100, "Sem proventos")}
+        ${rk.cagr != null ? card("Ao ano", rk.cagr, `Média de ${n1.format(rk.years)} anos`) : ""}
+        ${card("Ibovespa", ibov ? lastOf(ibov) - 100 : benchVal(null, "ibov"), "Índice de referência")}
+        ${card("CDI", cdi ? lastOf(cdi) - 100 : benchVal(null, "cdi"), b.cdiCut ? "Últimos 10 anos" : "Renda fixa de referência")}
+        ${card("IPCA", ipca ? lastOf(ipca) - 100 : benchVal(null, "ipca"), "Inflação, meses completos")}
+      </div>
+      <div class="section-label">Risco no período</div>
+      <div class="ret-grid">
+        ${card("Volatilidade anualizada", rk.vol != null ? n1.format(rk.vol) + "%" : "—", "Quanto o preço oscila", false)}
+        ${card("Maior queda", rk.mdd, "Do pico ao fundo", true)}
+      </div>`;
+  }
+
+  function renderProventos(body) {
+    const list = cashDividendsOf(cur);
+    if (!list.length) { body.innerHTML = `<p class="status">A fonte não retornou proventos para esta ação. No plano gratuito da brapi, o histórico de dividendos pode não estar disponível.</p>`; return; }
+    const byYear = {};
+    list.forEach((d) => { const y = (d.com || d.pay)?.getFullYear(); if (y) byYear[y] = (byYear[y] || 0) + d.rate; });
+    const thisYear = new Date().getFullYear();
+    const years = Object.keys(byYear).map(Number).sort().slice(-10);
+    const m = metricsOf(cur);
+    const avg5 = (() => { const ys = years.filter((y) => y < thisYear).slice(-5); return ys.length ? ys.reduce((s, y) => s + byYear[y], 0) / ys.length : null; })();
+    body.innerHTML = `
+      <div class="ret-grid">
+        <div class="ret"><div class="lbl">Dividend yield 12 meses</div><div class="val num">${m.dy ? n2.format(m.dy) + "%" : "—"}</div><div class="hint">Pago em 12 meses ÷ preço atual</div></div>
+        <div class="ret"><div class="lbl">Pago em 12 meses</div><div class="val num">${m.paid12 ? "R$ " + n4.format(m.paid12) : "—"}</div><div class="hint">Por ação, valor bruto</div></div>
+        <div class="ret"><div class="lbl">Média anual</div><div class="val num">${avg5 ? "R$ " + n4.format(avg5) : "—"}</div><div class="hint">Anos fechados, até 5</div></div>
+      </div>
+      <div class="section-label">Proventos por ação, por ano (R$)</div>
+      <div class="chart-box" style="height:220px"><canvas id="divChart" role="img" aria-label="Proventos por ação em cada ano"></canvas></div>
+      <p class="status" style="margin:6px 0 0">O ano de ${thisYear} ainda está em andamento. Anos são contados pela data com.</p>
+      <div class="section-label">Histórico</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Tipo</th><th>Data com</th><th>Pagamento</th><th class="r">Valor por ação</th><th>Referente a</th></tr></thead>
+        <tbody>${list.slice(0, divLimit).map((d) => `<tr><td>${esc(d.label)}</td><td class="num">${fmtDate(d.com)}</td><td class="num">${d.pay ? fmtDate(d.pay) : "A definir"}</td><td class="r num">R$ ${n4.format(d.rate)}</td><td>${esc(d.relatedTo)}</td></tr>`).join("")}</tbody>
+      </table></div>
+      ${list.length > divLimit ? `<div class="more"><button class="pill" type="button" data-act="moreDiv">Mostrar mais (${list.length - divLimit})</button></div>` : ""}
+      <p class="status">Data com: último dia para ter a ação e receber o provento. JCP tem 15% de imposto retido na fonte; os valores mostrados são brutos. Dividendos são isentos de IR para pessoa física pelas regras vigentes.</p>`;
+    if (window.Chart) {
+      const muted = css("--muted"), accent = css("--accent"), soft = css("--accent-soft");
+      divChart = new Chart(document.getElementById("divChart"), {
+        type: "bar",
+        data: { labels: years.map(String), datasets: [{ data: years.map((y) => byYear[y]), backgroundColor: years.map((y) => (y === thisYear ? soft : accent)), borderColor: accent, borderWidth: years.map((y) => (y === thisYear ? 1.5 : 0)), borderRadius: 4, maxBarThickness: 48 }] },
+        options: { responsive: true, maintainAspectRatio: false, animation: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => " R$ " + n4.format(c.parsed.y) + (years[c.dataIndex] === thisYear ? " (ano em andamento)" : "") } } },
+          scales: { x: { ticks: { color: muted }, grid: { display: false } }, y: { ticks: { color: muted, callback: (v) => n2.format(v) }, grid: { color: css("--line") }, beginAtZero: true } } },
+      });
+    }
+  }
+
+  function renderIndicadores(body) {
+    const c = cur, m = metricsOf(c), fin = isFinancial(c);
+    const sec = c._sector || { state: "loading" };
+    const med = sec.state === "ok" ? sec.med : {};
+    const r2 = (v) => (isNum(v) ? n2.format(v) : "—");
+    const p1 = (v) => (isNum(v) ? n1.format(v) + "%" : "—");
+    // Comparação neutra com a mediana do setor (sem juízo de compra ou venda)
+    const cmp = (v, mm, unit) => {
+      if (!isNum(v) || !mm || !isNum(mm.v) || mm.v === 0) return "";
+      const diff = (v - mm.v) / Math.abs(mm.v);
+      const word = Math.abs(diff) < 0.1 ? "Próximo da mediana" : diff > 0 ? "Acima da mediana" : "Abaixo da mediana";
+      return `<span class="cmp">${word}</span>`;
+    };
+    const sectorTxt = (k, f) => {
+      if (sec.state === "loading") return `Setor: <b>...</b>`;
+      const mm = med?.[k];
+      return mm ? `Mediana do setor: <b>${f(mm.v)}</b>` : "Setor: <b>—</b>";
+    };
+    const peText = !isNum(m.pe) ? "—" : m.pe < 0 ? "Negativo" : r2(m.pe);
+    const items = [
+      { k: "pe", name: "P/L", v: peText, raw: m.pe > 0 ? m.pe : null, f: r2,
+        d: m.pe < 0 ? "A empresa teve prejuízo nos últimos 12 meses, então o P/L não tem leitura útil." : "Preço da ação dividido pelo lucro por ação dos últimos 12 meses. Indica quantos anos de lucro atual equivalem ao preço." },
+      { k: "pb", name: "P/VP", v: r2(m.pb), raw: m.pb, f: r2, d: "Preço dividido pelo patrimônio líquido por ação. Abaixo de 1, o mercado paga menos que o valor contábil." },
+      { k: "dy", name: "Dividend yield 12 meses", v: m.dy ? p1(m.dy) : m.dy === 0 ? "0%" : "—", raw: m.dy, f: p1, d: "Proventos brutos pagos em 12 meses divididos pelo preço atual." },
+      { k: "roe", name: "ROE", v: p1(m.roe), raw: m.roe, f: p1, d: "Lucro sobre o patrimônio dos acionistas. Mede a rentabilidade do capital próprio." },
+      { k: "margin", name: "Margem líquida", v: p1(m.margin), raw: m.margin, f: p1, d: "Parte da receita que vira lucro. Varia muito entre setores." },
+      { k: "evE", name: "EV/EBITDA", v: fin ? "Não se aplica" : r2(m.evE), raw: fin ? null : m.evE, f: r2, d: fin ? "Bancos e seguradoras não têm EBITDA comparável. Use P/L, P/VP e ROE." : "Valor da empresa, incluindo dívida, sobre a geração de caixa operacional." },
+      { k: "ndE", name: "Dívida líquida / EBITDA", v: fin ? "Não se aplica" : m.ndE == null ? "—" : m.ndE < 0 ? "Caixa líquido" : r2(m.ndE) + "x", raw: fin ? null : m.ndE, f: (v) => r2(v) + "x",
+        d: fin ? "Para bancos, a dívida faz parte da operação e este indicador não é usado." : m.ndE < 0 ? "A empresa tem mais caixa que dívida." : "Quantos anos de geração de caixa pagariam a dívida líquida." },
+    ];
+    const anyData = items.some((i) => isNum(i.raw));
+    let secNote = "";
+    if (sec.state === "loading") secNote = "Calculando a mediana do setor...";
+    else if (sec.state === "ok") secNote = `Mediana do setor "${esc(sec.name)}" com ${sec.peers.length} empresas: ${sec.peers.map(esc).join(", ")}. A mediana só aparece quando há pelo menos 3 empresas com o dado; P/L e EV/EBITDA negativos ficam de fora.`;
+    else secNote = "Não foi possível calcular a mediana do setor. No plano gratuito da brapi, os dados de outras empresas podem estar bloqueados.";
+    body.innerHTML = `${anyData ? "" : `<p class="status">A fonte não retornou indicadores para esta ação. No plano gratuito da brapi, os dados de balanço podem não estar disponíveis.</p>`}
+      <div class="ind-grid">${items.map((i) => `<div class="ind">
+        <div class="name">${i.name}</div>
+        <div class="row"><span class="v num">${i.v}</span><span class="sector num">${fin && (i.k === "evE" || i.k === "ndE") ? "" : sectorTxt(i.k, i.f)}</span></div>
+        ${cmp(i.raw, med?.[i.k])}
+        <p>${i.d}</p></div>`).join("")}
+        <div class="ind"><div class="name">LPA e VPA</div><div class="row"><span class="v num">${r2(m.lpa)} / ${r2(m.vpa)}</span></div><p>Lucro por ação e valor patrimonial por ação, em reais.</p></div>
+      </div>
+      <p class="peers">${secNote}</p>
+      <p class="status">Indicadores descrevem resultados passados. Estar acima ou abaixo da mediana do setor não indica, sozinho, se a ação está cara ou barata.</p>`;
+  }
+
+  function renderEmpresa(body) {
+    const c = cur, sp = c.summaryProfile || {};
+    const site = sp.website && /^https?:\/\//.test(sp.website) ? sp.website : null;
+    body.innerHTML = `
+      <div class="kv">
+        <div>Nome<b>${esc(c.longName || c.shortName || "—")}</b></div>
+        <div>Setor<b>${esc(sp.sector || c._sector?.name || "—")}</b></div>
+        <div>Segmento<b>${esc(sp.industry || "—")}</b></div>
+        <div>Funcionários<b class="num">${isNum(sp.fullTimeEmployees) ? sp.fullTimeEmployees.toLocaleString("pt-BR") : "—"}</b></div>
+        <div>Sede<b>${esc([sp.city, sp.state].filter(Boolean).join(" / ") || "—")}</b></div>
+        <div>Valor de mercado<b class="num">${isNum(c.marketCap) ? "R$ " + compact.format(c.marketCap) : "—"}</b></div>
+      </div>
+      ${sp.longBusinessSummary ? `<div class="section-label">Sobre a empresa</div><p style="max-width:70ch;margin:0">${esc(sp.longBusinessSummary)}</p>` : ""}
+      <div class="section-label">Documentos oficiais</div>
+      <div class="chips">
+        ${site ? `<a class="pill" href="${esc(site)}" target="_blank" rel="noopener">Site de RI da empresa</a>` : ""}
+        <a class="pill" href="https://www.rad.cvm.gov.br/ENET/frmConsultaExternaCVM.aspx" target="_blank" rel="noopener">Fatos relevantes na CVM</a>
+        <a class="pill" href="https://www.b3.com.br/pt_br/produtos-e-servicos/negociacao/renda-variavel/empresas-listadas.htm" target="_blank" rel="noopener">Empresa na B3</a>
+      </div>`;
+  }
+
+  // ---------- favoritos e mercado ----------
+  function quoteLine(r) { return `${n2.format(r.regularMarketPrice)} <span class="chg ${cls(r.regularMarketChangePercent)}">${pct(r.regularMarketChangePercent)}</span>`; }
+  async function renderWatch() {
+    const ul = document.getElementById("watchList");
+    document.getElementById("watchEmpty").hidden = watch.length > 0;
+    ul.innerHTML = watch.map((t) => `<li data-open="${t}"><span class="tk">${t}</span><span class="num" data-wq="${t}"><span class="skel" style="display:inline-block;width:90px;height:14px"></span></span><button class="rm" type="button" data-rm="${t}" aria-label="Remover ${t} dos favoritos">×</button></li>`).join("");
+    if (!watch.length) return;
+    const put = (sym, html) => { const el = ul.querySelector(`[data-wq="${CSS.escape(sym)}"]`); if (el) el.innerHTML = html; };
+    try {
+      const d = await brapi("/quote/" + watch.map(encodeURIComponent).join(","));
+      (d.results || []).forEach((r) => put(r.symbol, quoteLine(r)));
+    } catch {
+      for (const t of watch) {
+        try { const r = (await brapi("/quote/" + encodeURIComponent(t))).results?.[0]; if (r) put(t, quoteLine(r)); else put(t, "—"); }
+        catch { put(t, "—"); }
+      }
+    }
+  }
+  async function renderMarket() {
+    const box = document.getElementById("market");
+    const parts = [];
+    await Promise.all([
+      brapi("/quote/%5EBVSP").then((d) => { const r = d.results?.[0]; if (r) parts[0] = `<div class="mkt-row"><span>Ibovespa</span><span class="num">${Math.round(r.regularMarketPrice).toLocaleString("pt-BR")} <span class="chg ${cls(r.regularMarketChangePercent)}">${pct(r.regularMarketChangePercent)}</span></span></div>`; }).catch(() => {}),
+      brapi("/v2/currency", { currency: "USD-BRL" }).then((d) => { const r = d.currency?.[0]; if (r) parts[1] = `<div class="mkt-row"><span>Dólar</span><span class="num">R$ ${n2.format(Number(r.bidPrice))} <span class="chg ${cls(Number(r.percentageChange))}">${pct(Number(r.percentageChange))}</span></span></div>`; }).catch(() => {}),
+    ]);
+    const html = parts.filter(Boolean).join("");
+    box.innerHTML = html || "Indisponível no seu plano da brapi.";
+    box.className = html ? "" : "status";
+  }
+
+  // ---------- eventos ----------
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-open],[data-tab],[data-range],[data-adj],[data-act],[data-rm],[data-bench],[data-retry]");
+    if (!t) return;
+    if (t.dataset.rm) { e.stopPropagation(); watch = watch.filter((x) => x !== t.dataset.rm); store.set("watchlist", watch); renderWatch(); if (cur) render(); return; }
+    if (t.dataset.open) return openTicker(t.dataset.open);
+    if (t.dataset.retry) return load(t.dataset.retry);
+    if (t.dataset.tab) { selectTab(t.dataset.tab); return; }
+    if (t.dataset.range) { rangeId = t.dataset.range; store.set("range", rangeId); document.querySelectorAll("[data-range]").forEach((x) => x.setAttribute("aria-pressed", x.dataset.range === rangeId)); return cur && load(cur.symbol); }
+    if (t.dataset.adj) { adjusted = t.dataset.adj === "1"; document.querySelectorAll("[data-adj]").forEach((x) => x.setAttribute("aria-pressed", (x.dataset.adj === "1") === adjusted)); return renderResumoChart(); }
+    if (t.dataset.bench) { const k = t.dataset.bench; bench[k] = !bench[k]; t.setAttribute("aria-pressed", bench[k]); return renderResumoChart(); }
+    if (t.dataset.act === "fav" && cur) {
+      watch = watch.includes(cur.symbol) ? watch.filter((x) => x !== cur.symbol) : [...watch, cur.symbol];
+      store.set("watchlist", watch); renderWatch();
+      const on = watch.includes(cur.symbol); t.setAttribute("aria-pressed", on); t.textContent = on ? "★ Nos favoritos" : "☆ Favoritar";
+      return;
+    }
+    if (t.dataset.act === "refresh" && cur) { cur._sector = undefined; load(cur.symbol); renderWatch(); renderMarket(); return; }
+    if (t.dataset.act === "moreDiv") { divLimit += 40; return renderTab(); }
+    if (t.dataset.act === "token") return openToken();
+  });
+  function selectTab(id) {
+    tab = id;
+    document.querySelectorAll("[data-tab]").forEach((b) => { const on = b.dataset.tab === tab; b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1; });
+    renderTab();
+  }
+  document.addEventListener("keydown", (e) => {
+    const t = e.target.closest?.("[role=tab]");
+    if (!t || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) return;
+    const tabs = [...document.querySelectorAll("[role=tab]")];
+    const i = (tabs.indexOf(t) + (e.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    selectTab(tabs[i].dataset.tab); tabs[i].focus();
+  });
+
+  const dlg = document.getElementById("tokenDlg");
+  const tokenInput = document.getElementById("tokenInput");
+  function openToken() { tokenInput.value = token; if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", ""); }
+  document.getElementById("btnToken").addEventListener("click", openToken);
+  document.getElementById("tokenCancel").addEventListener("click", () => dlg.close());
+  document.getElementById("tokenForm").addEventListener("submit", () => {
+    token = tokenInput.value.trim(); store.set("brapiToken", token);
+    renderWatch(); renderMarket(); if (cur) { cur._sector = undefined; load(cur.symbol); } else load(decodeURIComponent(location.hash.slice(1)) || "PETR4");
+  });
+
+  // ---------- início ----------
+  const start = decodeURIComponent((location.hash || "").slice(1)) || recent[0] || "PETR4";
+  load(start.toUpperCase());
+  renderWatch();
+  renderMarket();
+})();
+</script>
+</body>
+</html>
